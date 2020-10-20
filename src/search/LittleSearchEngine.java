@@ -108,9 +108,33 @@ public class LittleSearchEngine {
 	 */
 	public HashMap<String,Occurrence> loadKeyWords(String docFile) 
 	throws FileNotFoundException {
-		// COMPLETE THIS METHOD
-		// THE FOLLOWING LINE HAS BEEN ADDED TO MAKE THE METHOD COMPILE
-		return null;
+		
+		if (docFile == null)
+			throw new FileNotFoundException();
+		
+		HashMap<String, Occurrence> map = new HashMap<String, Occurrence>();
+		
+		Scanner sc = new Scanner(new FileReader(docFile));
+		
+		while (sc.hasNext()){
+			String line = sc.nextLine();
+			String [] words = line.split(" ");
+			for (String s : words){
+				String temp = getKeyWord(s);
+				if (temp != null){
+					if (temp.isEmpty()) continue;
+					if(map.containsKey(temp))
+						map.get(temp).frequency++;
+					else{
+						Occurrence o = new Occurrence(docFile, 1);
+						map.put(temp, o);
+					}
+				}
+			}
+				
+		}
+		
+		return map;
 	}
 	
 	/**
@@ -123,7 +147,20 @@ public class LittleSearchEngine {
 	 * @param kws Keywords hash table for a document
 	 */
 	public void mergeKeyWords(HashMap<String,Occurrence> kws) {
-		// COMPLETE THIS METHOD
+
+		for (String s : kws.keySet()){
+			if (!keywordsIndex.containsKey(s)){
+				ArrayList<Occurrence> oL = new ArrayList<Occurrence>();
+				oL.add(kws.get(s));
+				keywordsIndex.put(s, oL);
+			}else{
+				Occurrence o = kws.get(s);
+				keywordsIndex.get(s).add(o);
+				ArrayList<Integer> tbd = insertLastOccurrence(keywordsIndex.get(s));
+				tbd.clear();
+			}
+		}
+		
 	}
 	
 	/**
@@ -138,10 +175,31 @@ public class LittleSearchEngine {
 	 * @return Keyword (word without trailing punctuation, LOWER CASE)
 	 */
 	public String getKeyWord(String word) {
-		// COMPLETE THIS METHOD
-		// THE FOLLOWING LINE HAS BEEN ADDED TO MAKE THE METHOD COMPILE
-		return null;
-	}
+		
+		if (word == null || word.isEmpty())
+			return null;
+		
+		String temp = "";
+		word = word.toLowerCase();
+		
+		for (int i = 0; i < word.length(); i++){
+			if (!Character.isLetter(word.charAt(i)) && i < word.length() - 1 && Character.isLetter(word.charAt(i+1)))
+				return null;
+			
+			if (Character.isLetter(word.charAt(i))){
+				temp = temp + word.charAt(i);
+			}
+				
+		}
+		
+		if (noiseWords.containsValue(temp))
+			return null;
+		
+		if (temp.isEmpty())
+			return null;
+		
+		return temp;
+	} 
 	
 	/**
 	 * Inserts the last occurrence in the parameter list in the correct position in the
@@ -156,9 +214,45 @@ public class LittleSearchEngine {
 	 *         your code - it is not used elsewhere in the program.
 	 */
 	public ArrayList<Integer> insertLastOccurrence(ArrayList<Occurrence> occs) {
-		// COMPLETE THIS METHOD
-		// THE FOLLOWING LINE HAS BEEN ADDED TO MAKE THE METHOD COMPILE
-		return null;
+		
+		if (occs == null || occs.isEmpty())
+			return null;
+	
+		ArrayList<Integer> result = new ArrayList<Integer>();
+		
+		if (occs.size() == 1){
+			result.add(0);
+			return result;
+		}
+
+		int low = 0;
+		int mid = 0;
+		int high = occs.size()-2; 
+		int target = occs.get(occs.size()-1).frequency;
+		
+		while (low <= high){
+			
+			mid = (low+high)/2;
+			result.add(mid);
+			
+			int key = occs.get(mid).frequency;
+			
+			if (key == target)
+				break;
+			else if (key < target)
+				high = mid - 1;
+			else{
+				low = mid + 1;
+				if (high <=mid)
+					mid++;
+			}
+			
+		}
+	    
+		Occurrence o = occs.remove(occs.size()-1);
+		occs.add(mid, o);
+		
+		return result;
 	}
 	
 	/**
@@ -176,8 +270,93 @@ public class LittleSearchEngine {
 	 *         the result is null.
 	 */
 	public ArrayList<String> top5search(String kw1, String kw2) {
-		// COMPLETE THIS METHOD
-		// THE FOLLOWING LINE HAS BEEN ADDED TO MAKE THE METHOD COMPILE
-		return null;
+		
+
+		ArrayList<String> result = new ArrayList<String>();
+		
+		ArrayList<Occurrence> list1 = keywordsIndex.get(kw1), list2 = keywordsIndex.get(kw2), l1, l2;
+		
+		l1 = list1;
+		l2 = list2;
+		int count = 0;
+		
+		if (l1 == null && l2 == null) return null;
+		
+		if (l2 == null){
+			int i = 0;
+			while (i < 5 && i < l1.size()){
+				result.add(l1.get(i).document);
+				i++;
+			}
+			
+			return result;
+		}
+		
+		if (l1 == null){
+			int i = 0;
+			while (i < 5 && i < l2.size()){
+				result.add(l2.get(i).document);
+				i++;
+			}
+			
+			return result;
+		}
+
+		
+		while ((!l1.isEmpty() || !l2.isEmpty()) && count < 5){
+			
+			if (l2.isEmpty()){
+				
+				String doc = l1.get(0).document;
+				l1 = new ArrayList<Occurrence>(l1.subList(1, l1.size()));
+				
+				if (result.contains(doc))
+					continue;
+				
+				
+				result.add(doc);
+				count++;
+					
+			}else if (l1.isEmpty()){
+				
+				String doc = l2.get(0).document;
+				l2 = new ArrayList<Occurrence>(l2.subList(1, l2.size()));
+				
+				if (result.contains(doc)){
+					continue;
+				}
+				
+				result.add(doc);
+				count++;
+				
+			}else{
+				
+				int f1 = l1.get(0).frequency, f2 = l2.get(0).frequency;
+				String doc1 = l1.get(0).document, doc2 = l2.get(0).document;
+			
+				
+				if (f1 < f2){
+					l2 = new ArrayList<Occurrence>(l2.subList(1, l2.size()));
+	
+					
+					if (result.contains(doc2))
+						continue;
+					result.add(doc2);
+					count++;
+				}else{
+					l1 = new ArrayList<Occurrence>(l1.subList(1, l1.size()));
+					
+					if (result.contains(doc1))
+						continue;
+					
+					result.add(doc1);
+					count++;
+				}
+			}
+		}
+		
+		return result;
+		
 	}
+	
 }
